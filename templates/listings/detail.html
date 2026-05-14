@@ -1,0 +1,887 @@
+{% extends 'base.html' %}
+{% load currency %}{% load static %}{% load images %}
+{% block title %}{{ listing.car.make }} {{ listing.car.model }} | Vehicle Vault{% endblock %}
+
+{% block content %}
+<style>
+  /* --- Ultra-Smooth Cinematic Pan --- */
+  @keyframes cinematicPan { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+  @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(225, 29, 72, 0); } 100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); } }
+
+  /* --- Detail Hero Section --- */
+  .detail-hero {
+    position: relative; padding: 90px 0 120px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); overflow: hidden; text-align: center;
+  }
+  .detail-hero::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: url("{% if hero_bg_url %}{{ hero_bg_url }}{% else %}{% static 'img/placeholder.svg' %}{% endif %}") center/cover no-repeat;
+    z-index: 1; animation: cinematicPan 40s ease-in-out infinite; transform: scale(1.1);
+  }
+  .detail-hero::after {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.7) 0%, rgba(15, 23, 42, 0.95) 100%); z-index: 2;
+  }
+  .detail-hero .container { position: relative; z-index: 3; }
+  .detail-hero h1 { font-size: 3.5rem; font-weight: 900; color: #ffffff; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 4px 20px rgba(0,0,0,0.6); }
+  .detail-hero p { color: #00d4ff; font-size: 1.15rem; margin: 0; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+
+  /* --- Main Content Wrapper --- */
+  .detail-wrapper { margin-top: -60px; position: relative; z-index: 10; padding-bottom: 80px; }
+
+  /* --- Media Stages (Gallery, 360, Turntable) --- */
+  .media-tabs { background: #ffffff; padding: 8px; border-radius: 12px; display: inline-flex; gap: 8px; margin-bottom: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; flex-wrap: wrap; justify-content: center; width: 100%; }
+  .media-tabs .btn { border: none; border-radius: 8px; font-weight: 800; color: #64748b; padding: 10px 25px; transition: all 0.3s ease; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px; }
+  .media-tabs .btn.active, .media-tabs .btn:hover { background: #0f172a; color: #ffffff; box-shadow: 0 4px 15px rgba(15, 23, 42, 0.2); }
+  
+  .media-stage { width: 100%; height: 500px; border-radius: 16px; overflow: hidden; background: #0f172a; position: relative; border: 1px solid #e2e8f0; box-shadow: 0 15px 35px rgba(0,0,0,0.06); }
+  .media-stage img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.4s ease; }
+  
+  .nav-arrow { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255, 255, 255, 0.9); color: #0f172a; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; z-index: 2; transition: all 0.3s ease; font-size: 1.2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; }
+  .nav-arrow:hover { background: #e11d48; color: #ffffff; transform: translateY(-50%) scale(1.1); }
+  .prev-arrow { left: 20px; } .next-arrow { right: 20px; }
+  
+  .thumbnail-gallery { display: flex; gap: 12px; overflow-x: auto; padding: 20px 0 5px; scrollbar-width: none; }
+  .thumbnail-gallery::-webkit-scrollbar { display: none; }
+  .thumb-img { width: 120px; height: 80px; border-radius: 10px; object-fit: cover; cursor: pointer; border: 3px solid transparent; opacity: 0.6; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+  .thumb-img:hover, .thumb-img.active { opacity: 1; border-color: #e11d48; transform: translateY(-3px); }
+
+  /* --- Premium Cards --- */
+  .cd-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 15px 40px rgba(0,0,0,0.03); padding: 30px; margin-bottom: 25px; }
+  .cd-title { font-weight: 900; color: #0f172a; font-size: 1.4rem; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; }
+  .cd-title i { color: #e11d48; font-size: 1.3rem; background: rgba(225, 29, 72, 0.1); padding: 10px; border-radius: 10px; }
+  
+  /* --- Spec Grid Upgraded --- */
+  .cd-spec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+  .cd-spec { display: flex; flex-direction: column; gap: 5px; padding: 18px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; transition: all 0.3s; }
+  .cd-spec:hover { border-color: #cbd5e1; background: #ffffff; box-shadow: 0 8px 20px rgba(0,0,0,0.04); transform: translateY(-2px); }
+  .cd-spec-label { font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+  .cd-spec-label i { color: #e11d48; font-size: 1rem; }
+  .cd-spec-val { font-weight: 900; color: #0f172a; font-size: 1.1rem; }
+  
+  /* --- Tables (Variants, Compare, Cities) --- */
+  .cd-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.95rem; }
+  .cd-table th, .cd-table td { border-bottom: 1px solid #e2e8f0; padding: 16px 12px; }
+  .cd-table th { background: #f8fafc; font-weight: 800; color: #475569; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px; }
+  .cd-table td { color: #0f172a; font-weight: 600; }
+  .cd-link { color: #e11d48; font-weight: 800; text-decoration: none; font-size: 0.9rem; }
+  .cd-link:hover { color: #be123c; text-decoration: underline; }
+
+  /* Comparison Table Specific */
+  .cmp-wrapper { overflow-x: auto; padding-bottom: 10px; border-radius: 12px; border: 1px solid #e2e8f0; }
+  .cmp-table { width: 100%; min-width: 700px; border-collapse: collapse; text-align: center; background: #ffffff; }
+  .cmp-table th, .cmp-table td { padding: 18px 15px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+  .cmp-table th { background: #f8fafc; font-weight: 800; color: #475569; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px; border-bottom: 2px solid #e2e8f0; }
+  .cmp-table .th-feature { text-align: left; position: sticky; left: 0; background: #f8fafc; z-index: 2; width: 25%; }
+  .cmp-table td { font-size: 0.95rem; color: #334155; font-weight: 600; }
+  .cmp-table td.td-feature { text-align: left; position: sticky; left: 0; background: #ffffff; z-index: 2; font-weight: 800; color: #0f172a; border-right: 1px solid #f1f5f9; }
+  .col-highlight-header { background: #e11d48 !important; color: #ffffff !important; border-top-left-radius: 12px; border-top-right-radius: 12px; border: none; position: relative; }
+  .col-highlight-header::after { content: 'CURRENT'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; font-size: 0.6rem; padding: 2px 8px; border-radius: 10px; letter-spacing: 1px; }
+  .col-highlight { background: #fff1f2; border-left: 2px solid #fecaca; border-right: 2px solid #fecaca; color: #e11d48 !important; font-weight: 800 !important; }
+  .col-highlight-bottom { border-bottom: 2px solid #fecaca !important; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
+
+  /* --- Pros Cons --- */
+  .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .pros { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 25px; }
+  .cons { background: #fef2f2; border: 1px solid #fecaca; border-radius: 16px; padding: 25px; }
+  .pc-title { font-weight: 900; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; font-size: 1.2rem; text-transform: uppercase; }
+  .pros .pc-title { color: #16a34a; } .cons .pc-title { color: #dc2626; }
+  .pc-list { margin: 0; padding-left: 0; list-style: none; color: #334155; font-size: 0.95rem; line-height: 1.6; font-weight: 600; }
+  .pc-list li { margin-bottom: 12px; position: relative; padding-left: 25px; }
+  .pros .pc-list li::before { content: '✓'; position: absolute; left: 0; color: #16a34a; font-weight: 900; }
+  .cons .pc-list li::before { content: '✕'; position: absolute; left: 0; color: #dc2626; font-weight: 900; }
+
+  /* --- Reviews --- */
+  .review-fade { position: relative; max-height: 200px; overflow: hidden; color: #475569; line-height: 1.7; font-weight: 500; font-size: 1.05rem; transition: max-height 0.5s ease; }
+  .review-fade::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 80px; background: linear-gradient(180deg, rgba(255,255,255,0), #fff); transition: opacity 0.3s ease; }
+  .review-fade.expanded { max-height: 2000px; overflow: visible; }
+  .review-fade.expanded::after { opacity: 0; pointer-events: none; }
+  .read-more-btn { position: absolute; right: 10px; bottom: 0px; z-index: 2; }
+  
+  /* --- Sticky Right Sidebar --- */
+  .sticky-sidebar { position: sticky; top: 100px; }
+  .price-widget { background: #ffffff; border: 2px solid #e2e8f0; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.08); }
+  .price-label { font-size: 0.85rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+  .main-price { font-size: 3rem; font-weight: 900; color: #0f172a; line-height: 1; margin-bottom: 25px; letter-spacing: -1px; }
+  
+  .btn-buy-securely { background: #e11d48; color: #fff; font-weight: 900; font-size: 1.1rem; border-radius: 12px; border: none; width: 100%; padding: 18px; text-transform: uppercase; letter-spacing: 1px; transition: all 0.3s; margin-bottom: 15px; animation: pulseRed 2.5s infinite; }
+  .btn-buy-securely:hover { background: #be123c; transform: translateY(-3px); }
+  
+  .btn-outline-dark { border: 2px solid #e2e8f0; color: #0f172a; font-weight: 800; padding: 15px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.3s; }
+  .btn-outline-dark:hover { background: #0f172a; color: #ffffff; border-color: #0f172a; }
+
+  /* --- Premium Modal Upgrades --- */
+  .modal-content { border: none; box-shadow: 0 25px 50px rgba(0,0,0,0.15); }
+  .spec-search-bar { background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 8px; font-weight: 600; padding: 10px 15px; color: #0f172a; }
+  .spec-search-bar:focus { background: #ffffff; border-color: #e11d48; box-shadow: none; outline: none; }
+  .spec-tabs .btn { border-radius: 8px; padding: 8px 16px; margin-right: 5px; margin-bottom: 5px; }
+  .spec-tabs .btn-outline-dark { border-color: #cbd5e1; color: #475569; }
+  .spec-tabs .btn-outline-dark:hover { background: #f1f5f9; border-color: #94a3b8; color: #0f172a; }
+
+  /* --- Advanced AI Chart Styles --- */
+  .analytics-badge { background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; padding: 8px 16px; border-radius: 10px; font-weight: 800; font-size: 0.85rem; letter-spacing: 0.5px; text-transform: uppercase; }
+  .chart-loading { position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.85); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; flex-direction:column; z-index:5; opacity:0; pointer-events:none; transition:opacity .3s; border-radius:12px; }
+  .chart-loading.active { opacity:1; pointer-events:auto; }
+  .spinner { width: 36px; height: 36px; border: 4px solid #f1f5f9; border-top: 4px solid #e11d48; border-radius: 50%; animation: spin 1s linear infinite; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+  /* Mobile Adjustments */
+  @media (max-width: 991px) { .pros-cons { grid-template-columns: 1fr; } .media-stage { height: 350px; } .main-price { font-size: 2.5rem; } }
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
+<script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+
+<section class="detail-hero reveal">
+  <div class="container">
+    <h1>{{ listing.car.make }} {{ listing.car.model }}</h1>
+    <p><i class="fa-solid fa-location-dot me-2" style="color: #e11d48;"></i> {% if listing.showroom %}{{ listing.showroom.city|default:"Location Pending" }}{% else %}Online Exclusive{% endif %} • {{ listing.car.year }}</p>
+  </div>
+</section>
+
+<div class="modal fade" id="specsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius: 16px;">
+      <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
+        <h5 class="modal-title fw-bold fs-4 text-dark"><i class="fa-solid fa-list-check text-danger me-2"></i> All Specifications</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4 pt-3">
+        
+        <div class="d-flex flex-wrap align-items-center gap-3 mb-4 p-3 rounded-3" style="background: #f8fafc; border: 1px solid #e2e8f0;">
+          <div class="position-relative flex-grow-1" style="max-width: 300px;">
+            <i class="fa-solid fa-magnifying-glass position-absolute text-muted" style="left: 15px; top: 14px;"></i>
+            <input type="text" id="specSearch" class="form-control spec-search-bar w-100" placeholder="Search spec..." style="padding-left: 40px;">
+          </div>
+          
+          <div class="btn-group ms-auto" role="group" aria-label="Units">
+            <button type="button" class="btn btn-dark btn-sm fw-bold px-3" id="unitMetric">Metric</button>
+            <button type="button" class="btn btn-outline-dark btn-sm fw-bold px-3" id="unitImperial" style="border-color: #cbd5e1; color:#475569;">Imperial</button>
+          </div>
+          
+          <div class="d-flex gap-2">
+            <a href="{% url 'listing_specs_pdf' listing.listing_id %}" target="_blank" class="btn btn-outline-secondary btn-sm fw-bold" style="border-radius: 8px;"><i class="fa-solid fa-file-pdf me-1 text-danger"></i> PDF</a>
+            <button type="button" class="btn btn-outline-secondary btn-sm fw-bold" id="copySpecs" style="border-radius: 8px;"><i class="fa-solid fa-copy me-1"></i> Copy</button>
+          </div>
+        </div>
+
+        <div class="spec-tabs mb-4" id="specTabs">
+          <button type="button" class="btn btn-dark fw-bold" data-spec-target="specPerf">Performance</button>
+          <button type="button" class="btn btn-outline-dark fw-bold" data-spec-target="specDrive">Drivetrain</button>
+          <button type="button" class="btn btn-outline-dark fw-bold" data-spec-target="specDims">Dimensions</button>
+          <button type="button" class="btn btn-outline-dark fw-bold" data-spec-target="specSafe">Safety</button>
+        </div>
+        
+        <div id="specPerf" class="spec-pane">
+          <table class="cd-table" id="specsTablePerf">
+            <tbody>
+              <tr><th>Engine Capacity</th><td class="text-end spec-val" data-unit="cc" data-metric="{{ listing.car.engine_cc|default:'' }}">{{ listing.car.engine_cc|default:'—' }}{% if listing.car.engine_cc %} cc{% endif %}</td></tr>
+              <tr><th>Maximum Power</th><td class="text-end spec-val" data-unit="bhp" data-metric="{{ listing.car.power_bhp|default:'' }}">{{ listing.car.power_bhp|default:'—' }}{% if listing.car.power_bhp %} bhp{% endif %}</td></tr>
+              <tr><th>Peak Torque</th><td class="text-end spec-val" data-unit="nm" data-metric="{{ listing.car.torque_nm|default:'' }}">{{ listing.car.torque_nm|default:'—' }}{% if listing.car.torque_nm %} Nm{% endif %}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div id="specDrive" class="spec-pane" style="display:none;">
+          <table class="cd-table" id="specsTableDrive">
+            <tbody>
+              <tr><th>Fuel Delivery</th><td class="text-end">{{ listing.car.fuel_type|default:"—" }}</td></tr>
+              <tr><th>Transmission</th><td class="text-end">{{ listing.car.transmission|default:"—" }}</td></tr>
+              <tr><th>Current Odometer</th><td class="text-end spec-val" data-unit="km" data-metric="{{ listing.mileage|default:'' }}">{{ listing.mileage|default:'—' }}{% if listing.mileage %} km{% endif %}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div id="specDims" class="spec-pane" style="display:none;">
+          <table class="cd-table" id="specsTableDims">
+            <tbody>
+              <tr><th>Body Configuration</th><td class="text-end">{{ listing.car.body_type|default:"—" }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div id="specSafe" class="spec-pane" style="display:none;">
+          <table class="cd-table" id="specsTableSafe">
+            <tbody>
+              <tr><th>Global NCAP Safety</th><td class="text-end">{{ listing.car.gncap_rating|default:"—" }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<section class="container detail-wrapper">
+  <div class="row g-4">
+    
+    <div class="col-lg-8">
+      
+      <div class="cd-card reveal" style="padding: 20px; transition-delay: 0.1s;">
+        <div class="media-tabs" id="mediaTabs">
+          <button type="button" class="btn active" data-target="galleryContent"><i class="fa-solid fa-images me-2"></i> Gallery</button>
+          {% if pano_exterior or pano_interior %}
+            <button type="button" class="btn" data-target="panoContent"><i class="fa-solid fa-vr-cardboard me-2"></i> 360° View</button>
+          {% endif %}
+          <button type="button" class="btn" data-target="turntableContent"><i class="fa-solid fa-arrows-spin me-2"></i> Spin 360°</button>
+          {% if model_3d_url or sketchfab_uid %}
+            <button type="button" class="btn" data-target="model3dContent"><i class="fa-solid fa-cube me-2"></i> 3D Model</button>
+          {% endif %}
+        </div>
+
+        <div id="galleryContent" class="media-view active-view">
+          <div class="media-stage">
+            {% if images|length > 1 %}
+              <button class="nav-arrow prev-arrow" onclick="navigateGallery(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+            {% endif %}
+            
+            {% if images and images.0.image %}
+              <img id="mainDisplayImage" src="{{ images.0.image.url }}" alt="{{ listing.car.make }} {{ listing.car.model }}" onerror="if(!this.dataset.fbk){this.dataset.fbk='1'; this.src='{% listing_main_image listing '900x600' %}';} else { this.onerror=null; this.src='{% static 'img/placeholder.svg' %}'; }">
+            {% else %}
+              <img id="mainDisplayImage" src="{% listing_main_image listing '900x600' %}" alt="{{ listing.car.make }} {{ listing.car.model }}" onerror="if(!this.dataset.fbk){this.dataset.fbk='1'; this.src='{% car_image listing.car.make listing.car.model '900x600' %}';} else { this.onerror=null; this.src='{% static 'img/placeholder.svg' %}'; }">
+            {% endif %}
+
+            {% if images|length > 1 %}
+              <button class="nav-arrow next-arrow" onclick="navigateGallery(1)"><i class="fa-solid fa-chevron-right"></i></button>
+            {% endif %}
+          </div>
+          <div class="thumbnail-gallery" id="thumbnailContainer">
+            {% if images %}
+              {% for img in images|slice:":8" %}
+                {% if img.image %}
+                  <img src="{{ img.image.url }}" alt="{{ img.alt|default:listing.car.model }}" class="thumb-img {% if forloop.first %}active{% endif %}" onclick="changeMainImage(this)" onerror="if(!this.dataset.fbk){this.dataset.fbk='1'; this.src='{% car_image listing.car.make listing.car.model '300x200' %}';} else { this.onerror=null; this.src='{% static 'img/placeholder.svg' %}'; }">
+                {% endif %}
+              {% endfor %}
+            {% else %}
+              {% listing_thumbs listing 6 '300x200' as thumbs %}
+              {% for t in thumbs %}
+                <img src="{{ t }}" alt="{{ listing.car.make }} {{ listing.car.model }} image {{ forloop.counter }}" class="thumb-img {% if forloop.first %}active{% endif %}" onclick="changeMainImage(this)" onerror="this.onerror=null; this.src='{% static 'img/placeholder.svg' %}';">
+              {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+        
+        <div id="panoContent" class="media-view" style="display: none;">
+          <div class="d-flex gap-2 mb-2 px-2">
+            <button class="btn btn-dark fw-bold btn-sm rounded-pill px-3" id="btnExterior">Exterior</button>
+            <button class="btn btn-outline-secondary fw-bold btn-sm rounded-pill px-3" id="btnInterior">Interior</button>
+            <div class="ms-auto d-flex align-items-center gap-2">
+              <button class="btn btn-outline-dark btn-sm fw-bold" id="btnPanoLeft"><i class="fa-solid fa-arrow-left"></i></button>
+              <button class="btn btn-outline-dark btn-sm fw-bold" id="btnPanoRight"><i class="fa-solid fa-arrow-right"></i></button>
+              <button class="btn btn-outline-danger fw-bold btn-sm rounded-pill" id="btnPanoAuto"><i class="fa-solid fa-play me-1"></i> Auto Rotate</button>
+              <div class="d-flex align-items-center gap-2 ms-2">
+                <label class="text-muted fw-bold" for="panoSpeed" style="font-size:.8rem;">Speed</label>
+                <input type="range" id="panoSpeed" min="0.2" max="5" step="0.2" value="1.2">
+              </div>
+            </div>
+          </div>
+          <div id="panoExterior" class="media-stage border-0"></div>
+          <div id="panoInterior" class="media-stage border-0" style="display:none;"></div>
+        </div>
+        
+        <div id="turntableContent" class="media-view" style="display: none;">
+          {% if spin_ext or spin_int %}
+            <div class="d-flex gap-2 mb-2 px-2">
+              <button class="btn btn-dark fw-bold btn-sm rounded-pill px-3" id="btnSpinExterior">Exterior</button>
+              {% if spin_int %}
+              <button class="btn btn-outline-secondary fw-bold btn-sm rounded-pill px-3" id="btnSpinInterior">Interior</button>
+              {% endif %}
+              <div class="ms-auto d-flex align-items-center gap-2">
+                <button class="btn btn-outline-dark btn-sm fw-bold" id="btnSpinPrev"><i class="fa-solid fa-arrow-left"></i></button>
+                <button class="btn btn-outline-dark btn-sm fw-bold" id="btnSpinNext"><i class="fa-solid fa-arrow-right"></i></button>
+                <button class="btn btn-outline-danger fw-bold btn-sm rounded-pill" id="btnSpinAuto"><i class="fa-solid fa-play me-1"></i> Auto Spin</button>
+                <div class="d-flex align-items-center gap-2 ms-2">
+                  <label class="text-muted fw-bold" for="spinSpeed" style="font-size:.8rem;">Speed</label>
+                  <input type="range" id="spinSpeed" min="40" max="1000" step="20" value="240">
+                </div>
+              </div>
+            </div>
+            <div id="spinExterior" class="media-stage border-0" style="cursor: ew-resize;"></div>
+            {% if spin_int %}
+            <div id="spinInterior" class="media-stage border-0" style="cursor: ew-resize; display:none;"></div>
+            {% endif %}
+          {% else %}
+            <div class="media-stage d-flex align-items-center justify-content-center flex-column text-muted border-0">
+              <i class="fa-solid fa-arrows-spin fs-1 mb-3 opacity-50"></i>
+              <h5>No Turntable Data Available</h5>
+            </div>
+          {% endif %}
+        </div>
+        
+        {% if model_3d_url or sketchfab_uid %}
+        <div id="model3dContent" class="media-view" style="display: none;">
+          <div class="media-stage border-0 p-0" style="background:#0b1220;">
+            {% if sketchfab_uid %}
+              <iframe
+                title="{{ listing.car.make }} {{ listing.car.model }} 3D model"
+                frameborder="0" allowfullscreen
+                mozallowfullscreen="true" webkitallowfullscreen="true"
+                allow="autoplay; fullscreen; xr-spatial-tracking"
+                xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share
+                style="width:100%;height:100%;"
+                src="https://sketchfab.com/models/{{ sketchfab_uid }}/embed?autostart=1&ui_theme=dark&camera=0">
+              </iframe>
+            {% elif model_3d_url %}
+              <model-viewer id="carModelViewer" src="{{ model_3d_url }}" camera-controls autoplay shadow-intensity="1" exposure="1" environment-image="neutral" style="width:100%;height:100%;background:#0b1220;" ar ar-modes="webxr scene-viewer quick-look" alt="{{ listing.car.make }} {{ listing.car.model }} 3D model"></model-viewer>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="cd-card reveal" style="transition-delay: 0.15s;">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+          <div class="cd-title mb-0"><i class="fa-solid fa-microchip"></i> Quick Specifications</div>
+          <a href="#" class="btn btn-dark btn-sm fw-bold rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#specsModal">View All Specs</a>
+        </div>
+        
+        <div class="cd-spec-grid">
+          <div class="cd-spec">
+            <div class="cd-spec-label"><i class="fa-solid fa-engine-warning"></i> Engine</div>
+            <div class="cd-spec-val">{{ listing.car.engine_cc|default:"—" }} cc</div>
+          </div>
+          <div class="cd-spec">
+            <div class="cd-spec-label"><i class="fa-solid fa-bolt"></i> Power</div>
+            <div class="cd-spec-val">{{ listing.car.power_bhp|default:"—" }} bhp</div>
+          </div>
+          <div class="cd-spec">
+            <div class="cd-spec-label"><i class="fa-solid fa-gears"></i> Torque</div>
+            <div class="cd-spec-val">{{ listing.car.torque_nm|default:"—" }} Nm</div>
+          </div>
+          <div class="cd-spec">
+            <div class="cd-spec-label"><i class="fa-solid fa-gear"></i> Transmission</div>
+            <div class="cd-spec-val">{{ listing.car.transmission|default:"Automatic" }}</div>
+          </div>
+          <div class="cd-spec">
+            <div class="cd-spec-label"><i class="fa-solid fa-road"></i> Odometer</div>
+            <div class="cd-spec-val">{{ listing.mileage|default:"—" }} km</div>
+          </div>
+          <div class="cd-spec">
+            <div class="cd-spec-label"><i class="fa-solid fa-gas-pump"></i> Fuel Type</div>
+            <div class="cd-spec-val">{{ listing.car.fuel_type|default:"Petrol" }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cd-card reveal" style="transition-delay: 0.18s;">
+        <div class="cd-title"><i class="fa-solid fa-tags"></i> Variants & Pricing Estimates</div>
+        <table class="cd-table mt-3">
+          <thead><tr><th>Variant Configuration</th><th class="text-end">Ex-Showroom Estimate</th></tr></thead>
+          <tbody>
+            <tr style="background: #fff1f2;">
+              <td>
+                <div class="fw-bold d-flex align-items-center gap-2">{{ listing.car.make }} {{ listing.car.model }} <span class="badge bg-danger ms-2">THIS LISTING</span></div>
+                <div class="text-muted mt-1" style="font-size:.85rem">{{ listing.car.year }} • {{ listing.car.transmission|default:'Automatic' }}</div>
+              </td>
+              <td class="text-end">
+                <div class="fw-bold text-danger fs-5">{{ listing.price|inr }}</div>
+              </td>
+            </tr>
+            {% for v in variants %}
+            <tr>
+              <td>
+                <div class="fw-bold d-flex align-items-center gap-2">{{ v.car.make }} {{ v.car.model }} {{ v.car.year }}</div>
+                <div class="text-muted mt-1" style="font-size:.85rem">{{ v.car.transmission|default:'—' }}</div>
+              </td>
+              <td class="text-end">
+                <div class="fw-bold text-dark">{{ v.price|inr }}</div>
+              </td>
+            </tr>
+            {% empty %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="cd-card reveal" style="transition-delay: 0.19s;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <div class="cd-title mb-0"><i class="fa-solid fa-chart-line"></i> Market Intelligence</div>
+          <a href="{% url 'pricing_analytics' %}" class="btn btn-outline-dark btn-sm fw-bold rounded-pill px-4"><i class="fa-solid fa-chart-pie me-2"></i> Full Analytics</a>
+        </div>
+        
+        <div class="d-flex flex-wrap gap-2 mb-4">
+          <span class="analytics-badge"><i class="fa-solid fa-tag text-danger me-1"></i> {{ listing.car.make }}</span>
+          <span class="analytics-badge"><i class="fa-solid fa-car text-danger me-1"></i> {{ listing.car.model }}</span>
+          <span class="analytics-badge"><i class="fa-regular fa-calendar text-danger me-1"></i> {{ listing.car.year }}</span>
+          <input type="hidden" id="chartBrand" value="{{ listing.car.make }}">
+          <input type="hidden" id="chartYear" value="{{ listing.car.year }}">
+          <input type="hidden" id="chartModel" value="{{ listing.car.model }}">
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mb-4 border-bottom pb-3">
+          <button class="btn btn-dark btn-sm fw-bold rounded-pill px-4" data-dchart="trend">Price Trend</button>
+          <button class="btn btn-outline-dark btn-sm fw-bold rounded-pill px-4" data-dchart="dist">Distribution</button>
+          <button class="btn btn-outline-dark btn-sm fw-bold rounded-pill px-4" data-dchart="regions">Regional</button>
+        </div>
+
+        <div id="chartWrapTrend" style="position:relative; height:320px; display:block;">
+          <div class="chart-loading active" id="detailLoaderTrend"><div class="spinner"></div><div class="mt-3 fw-bold text-dark">Analyzing Trends...</div></div>
+          <canvas id="detailTrendChart" role="img" aria-label="Average price trend by month"></canvas>
+        </div>
+        <div id="chartWrapDist" style="position:relative; height:320px; display:none;">
+          <div class="chart-loading active" id="detailLoaderDist"><div class="spinner"></div><div class="mt-3 fw-bold text-dark">Processing Distribution...</div></div>
+          <canvas id="detailPriceChart" role="img" aria-label="Average price by model"></canvas>
+        </div>
+        <div id="chartWrapRegions" style="position:relative; height:320px; display:none;">
+          <div class="chart-loading active" id="detailLoaderRegions"><div class="spinner"></div><div class="mt-3 fw-bold text-dark">Loading Regional Data...</div></div>
+          <canvas id="detailRegionsChart" role="img" aria-label="Regional price variation"></canvas>
+        </div>
+      </div>
+
+      <div class="cd-card reveal" style="transition-delay: 0.2s;">
+        <div class="cd-title"><i class="fa-solid fa-scale-balanced"></i> Feature Comparison</div>
+        <p class="text-muted fw-bold mb-4">See how the {{ listing.car.make }} {{ listing.car.model }} stacks up against market competitors.</p>
+        
+        <div class="cmp-wrapper">
+          <table class="cmp-table">
+            <thead>
+              <tr>
+                <th class="th-feature">Specification</th>
+                <th class="col-highlight-header">
+                  <div class="fs-6">{{ listing.car.make }}</div>
+                  <div class="fs-5">{{ listing.car.model }}</div>
+                </th>
+                <th><div class="fs-6">Competitor A</div><div class="fs-6 fw-bold">Premium Trim</div></th>
+                <th><div class="fs-6">Competitor B</div><div class="fs-6 fw-bold">Luxury Trim</div></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="td-feature">Market Price</td><td class="col-highlight">{{ listing.price|inr }}</td><td>Similar Range</td><td>Premium +15%</td></tr>
+              <tr><td class="td-feature">Transmission</td><td class="col-highlight">{{ listing.car.transmission|default:'Automatic' }}</td><td>Automatic</td><td>Automatic</td></tr>
+              <tr><td class="td-feature">Fuel Economy</td><td class="col-highlight">{{ listing.mileage|default:'15' }} kmpl</td><td>14.2 kmpl</td><td>18.0 kmpl (Hybrid)</td></tr>
+              <tr><td class="td-feature">Safety Rating</td><td class="col-highlight col-highlight-bottom">5 Star NCAP</td><td>4 Star NCAP</td><td>5 Star NCAP</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="pros-cons mb-4 reveal" style="transition-delay: 0.25s;">
+        <div class="pros">
+          <div class="pc-title"><i class="fa-solid fa-circle-check"></i> Advantages</div>
+          <ul class="pc-list">
+            {% if listing.car.pros.all %}
+              {% for pro in listing.car.pros.all %}<li>{{ pro.text }}</li>{% endfor %}
+            {% else %}
+              <li>Incredible performance and handling dynamics.</li>
+              <li>Premium interior materials and build quality.</li>
+              <li>Loaded with advanced safety and tech features.</li>
+            {% endif %}
+          </ul>
+        </div>
+        <div class="cons">
+          <div class="pc-title"><i class="fa-solid fa-circle-xmark"></i> Trade-offs</div>
+          <ul class="pc-list">
+            {% if listing.car.cons.all %}
+              {% for con in listing.car.cons.all %}<li>{{ con.text }}</li>{% endfor %}
+            {% else %}
+              <li>Higher maintenance and running costs.</li>
+              <li>Stiff suspension setup on bad roads.</li>
+              <li>Infotainment system has a steep learning curve.</li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+
+      <div class="cd-card reveal" style="transition-delay: 0.3s;">
+        <div class="cd-title"><i class="fa-solid fa-file-signature"></i> Expert Review</div>
+        <div class="review-fade" id="expertReview">
+          {% if listing.car.expert_overview or listing.car.expert_exterior or listing.car.expert_interior or listing.car.expert_performance or listing.car.expert_verdict %}
+            {% if listing.car.expert_overview %}<p class="mb-3"><strong>Overview</strong> — {{ listing.car.expert_overview }}</p>{% endif %}
+            {% if listing.car.expert_exterior %}<p class="mb-3"><strong>Exterior</strong> — {{ listing.car.expert_exterior }}</p>{% endif %}
+            {% if listing.car.expert_interior %}<p class="mb-3"><strong>Interior</strong> — {{ listing.car.expert_interior }}</p>{% endif %}
+            {% if listing.car.expert_performance %}<p class="mb-3"><strong>Performance</strong> — {{ listing.car.expert_performance }}</p>{% endif %}
+            {% if listing.car.expert_verdict %}<p class="mb-0"><strong>Verdict</strong> — {{ listing.car.expert_verdict }}</p>{% endif %}
+          {% elif listing.description %}
+            <p>{{ listing.description|safe }}</p>
+          {% else %}
+            <p class="mb-3"><strong>Overview</strong> — The {{ listing.car.make }} {{ listing.car.model }} represents the pinnacle of modern engineering, combining aggressive styling with daily usability.</p>
+            <p class="mb-3"><strong>Exterior</strong> — It features a wide, planted stance with signature aerodynamic elements that not only look incredible but improve downforce.</p>
+            <p class="mb-3"><strong>Interior</strong> — Step inside, and you are greeted by an opulent cabin. High-quality leather, carbon fiber trims, and digital displays dominate the driver-focused cockpit.</p>
+            <p class="mb-3"><strong>Performance</strong> — Under the hood lies a masterpiece. Power delivery is instantaneous, and the transmission shifts with lightning-fast precision.</p>
+            <p class="mb-0"><strong>Verdict</strong> — If you are looking for a vehicle that can tear up the track on weekends and commute comfortably on weekdays, this is it.</p>
+          {% endif %}
+          <button class="btn btn-outline-dark fw-bold btn-sm bg-white read-more-btn" id="readMoreBtn">Read More <i class="fa-solid fa-angle-down ms-1"></i></button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="col-lg-4">
+      <div class="sticky-sidebar">
+        
+        <div class="price-widget reveal" style="transition-delay: 0.2s;">
+          <div class="price-label">Ex-Showroom Price</div>
+          <div class="main-price">{{ listing.price|inr }}</div>
+          
+          {% if is_buyer and listing.status == 'Active' %}
+            <form method="post" action="{% url 'listing_purchase' listing.listing_id %}">
+              {% csrf_token %}
+              <button class="btn-buy-securely"><i class="fa-solid fa-shield-check me-2"></i> Reserve Vehicle</button>
+            </form>
+          {% elif listing.status != 'Active' %}
+            <div class="alert alert-secondary text-center fw-bold mb-3 text-uppercase" style="letter-spacing: 1px; border-radius: 12px;"><i class="fa-solid fa-lock me-2"></i> {{ listing.status }}</div>
+          {% endif %}
+
+          <a href="#" class="btn btn-outline-dark w-100 mb-3"><i class="fa-solid fa-envelope-open-text me-2"></i> Contact Seller</a>
+          
+          {% if is_buyer %}
+            <button type="button" id="favBtn" class="btn btn-outline-dark w-100" style="border: 2px dashed #cbd5e1; background: #f8fafc;">
+              <i class="fa-regular fa-heart me-1"></i> Save to Garage
+            </button>
+          {% endif %}
+        </div>
+
+        <div class="cd-card reveal mt-4" style="transition-delay: 0.25s; padding: 25px;">
+          <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-3">
+            <div class="fw-bold text-dark text-uppercase" style="letter-spacing: 1px;"><i class="fa-solid fa-calculator text-danger me-2"></i> Finance Estimate</div>
+          </div>
+          <div class="text-muted fw-bold" style="font-size: 0.8rem; text-transform: uppercase;">Estimated Monthly</div>
+          <div class="text-dark fw-900" style="font-size: 2rem; font-weight: 900; letter-spacing: -1px;">{{ emi.amount|inr }} <span style="font-size: 1rem; color: #94a3b8;">/ mo</span></div>
+          <div class="text-muted mt-2" style="font-size: 0.8rem; font-weight: 600;">Calculated at {{ emi.rate }}% for {{ emi.months }} months.</div>
+        </div>
+
+        <div class="cd-card reveal mt-4" style="transition-delay: 0.3s; padding: 25px;">
+          <div class="fw-bold text-dark text-uppercase mb-3 pb-2 border-bottom" style="letter-spacing: 1px;"><i class="fa-solid fa-map-location-dot text-danger me-2"></i> Est. On-Road Prices</div>
+          <table class="cd-table" style="font-size: 0.85rem;">
+            <tbody>
+              {% for c, p in city_prices %}
+                <tr>
+                  <td class="px-0 py-2 border-bottom border-light fw-bold text-muted">{{ c }}</td>
+                  <td class="px-0 py-2 border-bottom border-light text-end text-dark fw-900">{{ p|inr }}</td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="2" class="text-center py-4 text-muted fw-bold">
+                    <i class="fa-solid fa-calculator mb-2 fs-4"></i><br>
+                    On-road estimates currently unavailable.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <small class="text-muted d-block mt-3" style="font-size: 0.75rem;">* Prices are estimates based on regional taxation and may vary slightly at checkout.</small>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+  // Expert Review Read More Expand
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById('readMoreBtn');
+    const wrap = document.getElementById('expertReview');
+    if(btn && wrap){ 
+      btn.addEventListener('click', () => { 
+        wrap.classList.add('expanded');
+        btn.style.display = 'none'; 
+      }); 
+    }
+  });
+
+  // --- Segmented Media Tabs Logic ---
+  document.querySelectorAll('.media-tabs .btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      document.querySelectorAll('.media-tabs .btn').forEach(b => b.classList.remove('active'));
+      const clickedBtn = e.currentTarget;
+      clickedBtn.classList.add('active');
+      const targetId = clickedBtn.getAttribute('data-target');
+      if (!targetId) return;
+      document.querySelectorAll('.media-view').forEach(view => view.style.display = 'none');
+      document.getElementById(targetId).style.display = 'block';
+      if (targetId === 'panoContent') { try { if (window.__panoInit) window.__panoInit(); } catch(_) {} }
+    });
+  });
+
+  // Standard Gallery Logic
+  function changeMainImage(thumbnail) {
+    const mainImage = document.getElementById('mainDisplayImage');
+    mainImage.style.opacity = '0.5';
+    setTimeout(() => {
+      mainImage.src = thumbnail.src;
+      mainImage.style.opacity = '1';
+    }, 200);
+    const thumbnails = document.querySelectorAll('.thumb-img');
+    thumbnails.forEach(img => img.classList.remove('active'));
+    thumbnail.classList.add('active');
+  }
+  function navigateGallery(direction) {
+    const thumbnails = Array.from(document.querySelectorAll('.thumb-img'));
+    if (!thumbnails.length) return;
+    const currentActive = document.querySelector('.thumb-img.active');
+    let currentIndex = thumbnails.indexOf(currentActive);
+    let nextIndex = currentIndex + direction;
+    if (nextIndex >= thumbnails.length) nextIndex = 0;
+    if (nextIndex < 0) nextIndex = thumbnails.length - 1;
+    changeMainImage(thumbnails[nextIndex]);
+  }
+
+  // Advanced Specs: unit toggles, search, copy
+  (function(){
+    const specTable = document.getElementById('specsTable');
+    const specSearch = document.getElementById('specSearch');
+    const unitMetric = document.getElementById('unitMetric');
+    const unitImperial = document.getElementById('unitImperial');
+    const copySpecs = document.getElementById('copySpecs');
+    const fmt = (x, suf) => (x === null || x === '' || isNaN(Number(x))) ? '—' : (Number(x).toLocaleString('en-IN', {maximumFractionDigits: 2}) + (suf ? ' ' + suf : ''));
+    const toImperial = (el) => {
+      const unit = el.dataset.unit;
+      const val = parseFloat(el.dataset.metric);
+      if (isNaN(val)) { el.textContent = '—'; return; }
+      if (unit === 'cc') { const L = val/1000; const CI = val*0.0610237; el.textContent = `${L.toFixed(2)} L • ${CI.toFixed(0)} cu in`; }
+      else if (unit === 'bhp') { const kW = val*0.7457; el.textContent = `${fmt(val, 'bhp')} • ${kW.toFixed(1)} kW`; }
+      else if (unit === 'nm') { const lbft = val*0.737562; el.textContent = `${fmt(val, 'Nm')} • ${lbft.toFixed(1)} lb·ft`; }
+      else if (unit === 'km') { const mi = val*0.621371; el.textContent = `${fmt(val, 'km')} • ${mi.toFixed(0)} mi`; }
+      else el.textContent = fmt(val, unit);
+    };
+    const toMetric = (el) => {
+      const unit = el.dataset.unit;
+      const val = parseFloat(el.dataset.metric);
+      if (isNaN(val)) { el.textContent = '—'; return; }
+      if (unit === 'cc') { el.textContent = `${fmt(val, 'cc')}`; }
+      else if (unit === 'bhp') { el.textContent = `${fmt(val, 'bhp')}`; }
+      else if (unit === 'nm') { el.textContent = `${fmt(val, 'Nm')}`; }
+      else if (unit === 'km') { el.textContent = `${fmt(val, 'km')}`; }
+      else el.textContent = fmt(val, unit);
+    };
+    const applyUnits = (mode) => {
+      const cells = document.querySelectorAll('.spec-val');
+      cells.forEach(el => mode === 'imperial' ? toImperial(el) : toMetric(el));
+      
+      if (unitMetric && unitImperial) {
+        if (mode === 'imperial') { 
+          unitImperial.classList.add('btn-dark'); unitImperial.classList.remove('btn-outline-dark'); 
+          unitImperial.style.color = '#fff';
+          unitMetric.classList.remove('btn-dark'); unitMetric.classList.add('btn-outline-dark'); 
+          unitMetric.style.color = '#475569';
+        } else { 
+          unitMetric.classList.add('btn-dark'); unitMetric.classList.remove('btn-outline-dark'); 
+          unitMetric.style.color = '#fff';
+          unitImperial.classList.remove('btn-dark'); unitImperial.classList.add('btn-outline-dark'); 
+          unitImperial.style.color = '#475569';
+        }
+      }
+    };
+    
+    if (unitMetric && unitImperial) {
+      unitMetric.addEventListener('click', () => applyUnits('metric'));
+      unitImperial.addEventListener('click', () => applyUnits('imperial'));
+      applyUnits('metric');
+    }
+
+    // Modal Copy Specs
+    if (copySpecs) {
+      copySpecs.addEventListener('click', async () => {
+        const activePane = document.querySelector('.spec-pane[style=""]');
+        if(!activePane) return;
+        const rows = Array.from(activePane.querySelectorAll('tbody tr'));
+        const lines = rows.filter(r => r.style.display !== 'none').map(r => r.cells[0].textContent.trim() + ': ' + r.cells[1].textContent.trim());
+        try { 
+          await navigator.clipboard.writeText(lines.join('\n')); 
+          copySpecs.innerHTML = '<i class="fa-solid fa-check me-1 text-success"></i> Copied';
+          setTimeout(() => copySpecs.innerHTML = '<i class="fa-solid fa-copy me-1"></i> Copy', 1500); 
+        } catch (_) {}
+      });
+    }
+  })();
+
+  // --- Inline AI Charts Logic ---
+  (function(){
+    const brand = document.getElementById('chartBrand').value;
+    const year = document.getElementById('chartYear').value;
+    const model = document.getElementById('chartModel').value;
+
+    function formatINR(v) { 
+      if (v >= 10000000) return '₹' + (v / 10000000).toFixed(2) + ' Cr';
+      if (v >= 100000) return '₹' + (v / 100000).toFixed(2) + ' L';
+      return new Intl.NumberFormat('en-IN', { style:'currency', currency:'INR', maximumFractionDigits:0 }).format(v||0); 
+    }
+
+    // Global Chart Configuration
+    Chart.defaults.font.family = "'Montserrat', sans-serif";
+    Chart.defaults.color = '#64748b';
+
+    const commonChartOptions = {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.95)', titleFont: { size: 14, weight: 'bold' }, bodyFont: { size: 14, weight: 'bold' },
+          padding: 12, cornerRadius: 8, displayColors: false,
+          callbacks: { label: function(context) { return formatINR(context.raw); } }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { weight: '700' } } },
+        y: { 
+          grid: { color: '#f1f5f9', drawBorder: false }, border: { dash: [5, 5] },
+          ticks: { font: { weight: '600' }, callback: function(value) { return formatINR(value); } } 
+        }
+      }
+    };
+
+    function ensureChart(cb){
+      if (window.Chart) return cb();
+      const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'; s.onload = cb; document.head.appendChild(s);
+    }
+
+    function showTab(name){
+      document.querySelectorAll('[data-dchart]').forEach(b => {
+        const is = b.getAttribute('data-dchart') === name;
+        b.classList.toggle('btn-dark', is);
+        b.classList.toggle('btn-outline-dark', !is);
+      });
+      document.getElementById('chartWrapTrend').style.display = name === 'trend' ? 'block' : 'none';
+      document.getElementById('chartWrapDist').style.display = name === 'dist' ? 'block' : 'none';
+      document.getElementById('chartWrapRegions').style.display = name === 'regions' ? 'block' : 'none';
+    }
+
+    document.querySelectorAll('[data-dchart]').forEach(b => b.addEventListener('click', () => showTab(b.getAttribute('data-dchart')) ));
+
+    ensureChart(async () => {
+      try {
+        const tparams = new URLSearchParams({ brand, model, year });
+        const dparams = new URLSearchParams({ brand, year });
+        
+        const [trendRes, distRes] = await Promise.all([
+          fetch('{% url "price_trend_data" %}?' + tparams.toString(), { headers: {'X-Requested-With':'XMLHttpRequest'} }),
+          fetch('{% url "price_chart_data" %}?' + dparams.toString(), { headers: {'X-Requested-With':'XMLHttpRequest'} }),
+        ]);
+        
+        const trend = await trendRes.json();
+        const dist = await distRes.json();
+        
+        // 1. Trend Chart (Line with Gradient)
+        const tl = trend.trend.map(p => p.month);
+        const tv = trend.trend.map(p => p.avg_price);
+        const ctxT = document.getElementById('detailTrendChart').getContext('2d');
+        let gradT = ctxT.createLinearGradient(0, 0, 0, 300);
+        gradT.addColorStop(0, 'rgba(15, 23, 42, 0.3)');
+        gradT.addColorStop(1, 'rgba(15, 23, 42, 0.0)');
+        
+        window.__detailTrend = new Chart(ctxT, { 
+          type: 'line', 
+          data: { labels: tl, datasets: [{ label: 'Avg Price', data: tv, borderColor: '#0f172a', backgroundColor: gradT, fill: true, tension: 0.4, borderWidth: 3, pointBackgroundColor: '#e11d48' }] }, 
+          options: commonChartOptions 
+        });
+        document.getElementById('detailLoaderTrend').classList.remove('active');
+        
+        // 2. Distribution Chart (Bar)
+        const dl = dist.points.map(p => p.model);
+        const dv = dist.points.map(p => p.avg_price);
+        const ctxD = document.getElementById('detailPriceChart').getContext('2d');
+        
+        window.__detailDist = new Chart(ctxD, { 
+          type: 'bar', 
+          data: { labels: dl, datasets: [{ label: 'Avg Price', data: dv, backgroundColor: '#0f172a', hoverBackgroundColor: '#e11d48', borderRadius: 6 }] }, 
+          options: commonChartOptions 
+        });
+        document.getElementById('detailLoaderDist').classList.remove('active');
+        
+        // 3. Regions Chart (Horizontal Bar)
+        const rl = trend.regions.map(r => r.city);
+        const rv = trend.regions.map(r => r.avg_price);
+        const ctxR = document.getElementById('detailRegionsChart').getContext('2d');
+        
+        window.__detailRegions = new Chart(ctxR, { 
+          type: 'bar', 
+          data: { labels: rl, datasets: [{ label: 'Avg Price', data: rv, backgroundColor: '#e11d48', borderRadius: 4 }] }, 
+          options: { ...commonChartOptions, indexAxis: 'y' } 
+        });
+        document.getElementById('detailLoaderRegions').classList.remove('active');
+        
+        showTab('trend');
+      } catch(e) {
+        console.error(e);
+        document.getElementById('detailLoaderTrend').classList.remove('active');
+        document.getElementById('detailLoaderDist').classList.remove('active');
+        document.getElementById('detailLoaderRegions').classList.remove('active');
+      }
+    });
+  })();
+
+  // Specs grouped tabs + search binding
+  (function(){
+    const tabBar = document.getElementById('specTabs');
+    const panes = Array.from(document.querySelectorAll('.spec-pane'));
+    const specSearch = document.getElementById('specSearch');
+    let currentPane = panes[0] || null;
+    
+    function showPane(id){
+      panes.forEach(p => p.style.display = (p.id === id) ? '' : 'none');
+      currentPane = document.getElementById(id);
+      if (tabBar){
+        tabBar.querySelectorAll('button').forEach(b => {
+          const tgt = b.getAttribute('data-spec-target');
+          b.classList.toggle('btn-dark', tgt === id);
+          b.classList.toggle('btn-outline-dark', tgt !== id);
+          b.style.color = (tgt === id) ? '#fff' : '#475569';
+        });
+      }
+      filterRows();
+    }
+    
+    function filterRows(){
+      if (!specSearch || !currentPane) return;
+      const q = specSearch.value.trim().toLowerCase();
+      const rows = Array.from(currentPane.querySelectorAll('tbody tr'));
+      rows.forEach(r => {
+        const txt = r.textContent.toLowerCase();
+        r.style.display = q && !txt.includes(q) ? 'none' : '';
+      });
+    }
+    
+    if (tabBar){
+      tabBar.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => showPane(btn.getAttribute('data-spec-target')));
+      });
+    }
+    if (specSearch) { specSearch.addEventListener('input', filterRows); }
+    if(panes.length > 0) { showPane(panes[0].id); }
+  })();
+
+  // Favorite toggle logic
+  (function(){
+    const fav = document.getElementById('favBtn');
+    if (!fav) return;
+    let liked = false;
+    function getCsrf(){
+      const meta = document.querySelector('meta[name="csrf-token"]');
+      if (meta && meta.content) return meta.content;
+      const c = document.cookie.match(/csrftoken=([^;]+)/);
+      if (c) return c[1];
+      const inp = document.querySelector('input[name="csrfmiddlewaretoken"]');
+      return inp ? inp.value : '';
+    }
+    fav.addEventListener('click', async () => {
+      try {
+        const body = new URLSearchParams();
+        body.append('listing_id', '{{ listing.listing_id }}');
+        const res = await fetch('{% url "toggle_favorite" %}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCsrf() },
+          credentials: 'same-origin',
+          body: body.toString()
+        });
+        const j = await res.json();
+        if (!j.ok) throw new Error(j.error || 'Failed');
+        liked = !!j.liked;
+        fav.innerHTML = liked ? '<i class="fa-solid fa-heart me-1 text-danger"></i> Saved' : '<i class="fa-regular fa-heart me-1"></i> Save to Garage';
+      } catch(e) { console.log(e); }
+    });
+  })();
+
+  // Initialize scroll reveals
+  document.addEventListener("DOMContentLoaded", () => {
+    const observer = new IntersectionObserver((entries) => { entries.forEach(entry => { if(entry.isIntersecting) entry.target.classList.add('active'); }); }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(reveal => observer.observe(reveal));
+  });
+
+  // (Keep the rest of your original JS functions for Pano and Spin here)
+</script>
+{% endblock %}
